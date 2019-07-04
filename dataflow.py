@@ -15,8 +15,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.options.pipeline_options import SetupOptions
-
-
+from apache_beam.options.pipeline_options import WorkerOptions
 
 def get_blob(bucket_name, prefix):
 
@@ -318,10 +317,10 @@ if __name__ == "__main__":
     # print(arguments)
 
     args = arguments.__dict__
-
-    BUCKET = str(args('bucket'))
-    IMAGE_FOLDER_PATH = str(args('image_folder_path'))
-    LABEL_FOLDER_PATH = str(args('label_folder_path'))
+    print(args)
+    BUCKET = str(args['bucket'])
+    IMAGE_FOLDER_PATH = str(args['image_folder_path'])
+    LABEL_FOLDER_PATH = str(args['label_folder_path'])
     RUNNER = str(args['runner'])
     OUTPUTDIR = 'gs://'+BUCKET+'/'+str(args['output_dir'])
     PROJECT = str(args['project'])
@@ -348,11 +347,14 @@ if __name__ == "__main__":
     # # For Cloud execution, set the Cloud Platform project, job_name,
     # # staging location, temp_location and specify DataflowRunner.
     google_cloud_options = options.view_as(GoogleCloudOptions)
+    worker_options = options.view_as(WorkerOptions)
     google_cloud_options.project = PROJECT
     google_cloud_options.job_name = JOBNAME
     google_cloud_options.staging_location = staging_bucket
     google_cloud_options.temp_location = temp_folder
     options.view_as(StandardOptions).runner = RUNNER
+    worker_options.machine_type = 'n1-standard-8'
+    worker_options.num_workers = 1
     # options.view_as(SetupOptions).save_main_session = True
    
     with beam.Pipeline(options=options) as p:
@@ -361,5 +363,5 @@ if __name__ == "__main__":
             'Read data from local' >> beam.io.ReadFromText('gs://testvideo_bucket_2/temp_folder/temp.csv') |
             # 'Convert data to tfrecord' >> beam.FlatMap(lambda line: convert_to_example(line)) |
             'Convert to tfrecord' >> beam.ParDo(ConvertTOExample())|
-            'Save tfrecords' >> beam.io.WriteToText(OUTPUTDIR+'/output_tfrecord', num_shards=1)
+            'Save tfrecords' >> beam.io.WriteToText(OUTPUTDIR+'/output_tfrecord.record', num_shards=1)
         )

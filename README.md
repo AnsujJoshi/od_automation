@@ -3,13 +3,13 @@
 ## Folder Structure
 
  --> automate.sh \
-     --> version.sh \
-     --> new_system.sh\
-     --> gcp.config.tmp(needs to be edited before use)\
-     --> config.config(needs to be edited before use)\
-     *--> models --> research --> sdist \
-     *--> models --> research --> slim\
-     *--> models --> research--> ..
+--> version.sh \
+--> new_system.sh\
+--> gcp.config.tmp(needs to be edited before use)\
+--> config.config(needs to be edited before use)\
+*--> models --> research --> sdist \
+*--> models --> research --> slim\
+*--> models --> research--> ..
 
 #### *models folder come after you run new_system.sh* 
 ## How to run this code

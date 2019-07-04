@@ -2,6 +2,9 @@
 
 #### New System
 
+### *IMPORTANT : Fill in appropriate values in gcp.config and config.config. After filling those files follow the next steps.*
+
+
 `
 pip install requirements.txt
 `

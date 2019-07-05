@@ -1,0 +1,8 @@
+wdir: .
+outs:
+- path: model_dir10
+  metric: false
+  cache: true
+  persist: false
+  md5: 1ae4f3c0d79a6aef30fda4aa3131115b.dir
+md5: 663812b51076b684d8c8f46a3bdce0ef

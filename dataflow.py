@@ -9,6 +9,7 @@ import cv2
 import xml.etree.ElementTree as ET
 import hashlib
 import logging
+from PIL import Image
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -134,24 +135,27 @@ class ConvertTOExample(beam.DoFn):
     # width = img_np.shape[1]
     return img_str
 
-  def _convert_to_example(self, filename, xml_file, image_buffer, use_class_weights=False):
+  def _convert_to_example(self, filename, xml_file, use_class_weights=False):
       import tensorflow as tf
       import xml.etree.ElementTree as ET
       import logging
       import hashlib
+      import os
+      import io
+      from PIL import Image
 
-      label2idx = {
-        "led_1":1,
-        "led_2":2,
-        "led_3":3,
-        "person":4,
-        "person_zone3":5,
-        "backrest":6,
-        "door":7,
-        "ride":8,
-        "screen":9
+      idx2label = {
+        1:"led_1",
+        2:"led_2",
+        3:"led_3",
+        4:"person",
+        5:"person_zone3",
+        6:"backrest",
+        7:"door",
+        8:"ride",
+        9:"screen"
         }
-
+      label2idx = {v:k for k,v in idx2label.items()}
       with tf.gfile.Open(xml_file, 'rb') as f:
           file_data = f.read()
           root = ET.fromstring(file_data)
@@ -176,8 +180,6 @@ class ConvertTOExample(beam.DoFn):
           label = member.find('name').text
           classes_text.append(str(label).encode('utf8'))
           print('LABEL', label)
-          logging.getLogger().setLevel(logging.INFO)
-          logging.info("LABEL %s",label)
           
           if use_class_weights:
               weights.append(class_weights_dict[str(label)])
@@ -191,15 +193,21 @@ class ConvertTOExample(beam.DoFn):
           #if you have more than one classes in dataset you can change the next line
           #to read the class from the xml file and change the class label into its 
           #corresponding integer number, u can use next function structure
-          # try:
-          classes.append(label2idx[label])   # i wrote 1 because i have only one class(person)
-          # except:
-          #     print(label)
-          #     return None
+          try:
+            classes.append(label2idx[label])   # i wrote 1 because i have only one class(person)
+          except:
+            print(label)
+            return None
           truncated.append(0)
           poses.append('Unspecified'.encode('utf8'))
-
-      encoded_jpg = image_buffer
+      # full_path = os.path.join("./"+img_and_anno_path+"/images", "{}".format(image_name))  #provide the path of images directory
+      with tf.gfile.GFile(filename, 'rb') as fid:
+            encoded_jpg = fid.read()
+      encoded_jpg_io = io.BytesIO(encoded_jpg)
+      image = Image.open(encoded_jpg_io)
+      if image.format != 'JPEG':
+          raise ValueError('Image format not JPEG')
+      # encoded_jpg = image_buffer
 
       key = hashlib.sha256(encoded_jpg).hexdigest()
       print('######## HERE #######')
@@ -263,9 +271,9 @@ class ConvertTOExample(beam.DoFn):
     # label_list = _convert_txt_to_label_dict(labelpath)
     print('####CNVT TO EXAMPLE #####')
     logging.info('####CNVT TO EXAMPLE #####')
-    image_string = self._load_image(filename)
+    # image_string = self._load_image(filename)
 
-    example = self._convert_to_example(filename, xml_file, image_string)
+    example = self._convert_to_example(filename, xml_file)
     print('Example', example)
     logging.info(" Example %s",example)
     yield example.SerializeToString()
@@ -322,7 +330,10 @@ if __name__ == "__main__":
     IMAGE_FOLDER_PATH = str(args['image_folder_path'])
     LABEL_FOLDER_PATH = str(args['label_folder_path'])
     RUNNER = str(args['runner'])
-    OUTPUTDIR = 'gs://'+BUCKET+'/'+str(args['output_dir'])
+    if RUNNER=='DataflowRunner':
+      OUTPUTDIR = 'gs://'+BUCKET+'/'+str(args['output_dir'])
+    else:
+      OUTPUTDIR = str(args['output_dir'])
     PROJECT = str(args['project'])
     JOBNAME = str(args['jobname'])#'alphatesting2'
 
@@ -353,7 +364,7 @@ if __name__ == "__main__":
     google_cloud_options.staging_location = staging_bucket
     google_cloud_options.temp_location = temp_folder
     options.view_as(StandardOptions).runner = RUNNER
-    worker_options.machine_type = 'n1-standard-8'
+    worker_options.machine_type = 'n1-standard-16'
     worker_options.num_workers = 1
     # options.view_as(SetupOptions).save_main_session = True
    
@@ -363,5 +374,5 @@ if __name__ == "__main__":
             'Read data from local' >> beam.io.ReadFromText('gs://testvideo_bucket_2/temp_folder/temp.csv') |
             # 'Convert data to tfrecord' >> beam.FlatMap(lambda line: convert_to_example(line)) |
             'Convert to tfrecord' >> beam.ParDo(ConvertTOExample())|
-            'Save tfrecords' >> beam.io.WriteToText(OUTPUTDIR+'/output_tfrecord.record', num_shards=1)
+            'Save tfrecords' >> beam.io.tfrecordio.WriteToTFRecord(OUTPUTDIR+'/output_tfrecord.record', num_shards=1)
         )

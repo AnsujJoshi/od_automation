@@ -1,0 +1,8 @@
+wdir: .
+outs:
+- path: job_dir
+  metric: false
+  cache: true
+  persist: false
+  md5: 9ec0a22115e3a39c03b2bfe4bf2e256b.dir
+md5: 02f4ecb8474df5ebb63e0fd8d5a9833f
